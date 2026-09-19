@@ -125,7 +125,19 @@ public class SubApiMain implements IMusicApi {
 
     @Override
     public String getPlayUrl(String id) {
-        return config.isValid() && id != null ? client.streamUrl(id) : null;
+        if (!config.isValid() || id == null) {
+            return null;
+        }
+        try {
+            JsonObject song = client.request("getSong", params("id", id)).getAsJsonObject("song");
+            if (song == null || !isMpeg(song)) {
+                return null;
+            }
+            return client.streamUrl(id);
+        } catch (Exception e) {
+            log("检查歌曲格式失败：" + e.getMessage());
+            return null;
+        }
     }
 
     @Override
@@ -149,6 +161,14 @@ public class SubApiMain implements IMusicApi {
         return new SongInfoObj(value(song, "artist"), value(song, "title"), value(song, "id"),
                 "", player, value(song, "album"), isList, length, value(song, "coverArt"),
                 false, null, getId());
+    }
+
+    private static boolean isMpeg(JsonObject song) {
+        String suffix = value(song, "suffix");
+        String contentType = value(song, "contentType");
+        return "mp3".equalsIgnoreCase(suffix)
+                || "audio/mpeg".equalsIgnoreCase(contentType)
+                || "audio/mp3".equalsIgnoreCase(contentType);
     }
 
     private static Map<String, String> params(String... values) {
